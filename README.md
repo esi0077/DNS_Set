@@ -9,3 +9,6 @@
 ## Note : Make sure to keep the .ico file in the same directory as the app to ensure it runs properly.
 
 
+# 🖼️ img 
+
+<img src="https://i.imgur.com/HorG6Al.png">
