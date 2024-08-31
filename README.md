@@ -6,6 +6,6 @@
 
 ### Pre-Built Downloads: Download the latest build directly to avoid the complexity of building it yourself.
 
-## Keep the .ico File: Make sure to keep the .ico file in the same directory as the app to ensure it runs properly.
+## Note : Make sure to keep the .ico file in the same directory as the app to ensure it runs properly.
 
 
