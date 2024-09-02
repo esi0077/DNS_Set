@@ -12,3 +12,21 @@
 # 🖼️ img 
 
 <img src="https://i.imgur.com/HorG6Al.png">
+
+
+
+# 🟢 Updates 
+
+### V1.1
+
+🔧 Fixed DNS Setup Issues
+We've tackled the notorious "failed to connect" error, making DNS setup more reliable than ever. Enjoy a hassle-free experience with your DNS configurations, whether you're using predefined settings or entering custom DNS addresses.
+
+🏗️ Updated Structure
+Our application has undergone a structural overhaul for better performance and reliability. The new structure not only enhances the stability of the app but also streamlines the process of setting up your DNS settings.
+
+🌟 Custom DNS Feature
+We heard you! Now you can easily set up your own custom DNS addresses. With the new "Custom DNS" option, simply enter your preferred and alternate DNS addresses in the user-friendly dialog box, and let the app handle the rest.
+
+🚀 Optimized Performance
+We've fine-tuned the app to ensure it doesn't crash or hang while connecting to DNS servers. Expect a smoother operation, even when handling large volumes of DNS configurations or dealing with network hiccups.

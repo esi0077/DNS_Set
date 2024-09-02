@@ -1,4 +1,3 @@
-
 # ░█████╗░██████╗░███╗░░░███╗██╗███╗░░██╗  ███████╗░██████╗███╗░░░███╗░█████╗░██╗██╗░░░░░██╗
 # ██╔══██╗██╔══██╗████╗░████║██║████╗░██║  ██╔════╝██╔════╝████╗░████║██╔══██╗██║██║░░░░░██║
 # ███████║██████╔╝██╔████╔██║██║██╔██╗██║  █████╗░░╚█████╗░██╔████╔██║███████║██║██║░░░░░██║
@@ -8,14 +7,30 @@
 
 #  Github : https://github.com/esi0077
 #  copyright : https://www.termsfeed.com/live/f4b97073-c05c-4657-b4f9-79c351c8d410
+
 import os
 import sys
 import ctypes
 import subprocess
 import time
 import threading
+import logging
 import customtkinter as ctk
-from tkinter import Frame
+from tkinter import messagebox
+import pythoncom  # Import pythoncom for COM initialization
+import wmi
+
+# Set up logging
+logging.basicConfig(filename='app.log', level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for development and when bundled. """
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
 
 # Predefined DNS settings for each button
 DNS_SETTINGS = {
@@ -58,8 +73,37 @@ DNS_SETTINGS = {
     "DNS 29": ("199.85.127.10", "199.85.126.10"),
     "DNS 30": ("208.67.220.220", "208.67.222.222"),
     "DNS 31": ("77.88.8.8", "77.88.8.1"),
-    "DNS 32": ("8.20.247.20", "8.26.56.26")
+    "Custom DNS": ("", "")  # Custom dns | this is new in V 1.1
 }
+
+class CustomDNSDialog(ctk.CTkToplevel):
+    def __init__(self, parent, title, prompt1, prompt2):
+        super().__init__(parent)
+        self.title(title)
+        self.geometry("500x400")
+        self.resizable(False, False)
+        parent.iconbitmap(resource_path("dns.ico"))
+        frame = ctk.CTkFrame(self)
+        frame.pack(padx=20, pady=20, fill='both', expand=True)
+        ctk.CTkLabel(frame, text=prompt1).pack(pady=(0, 10))
+        self.preferred_dns_entry = ctk.CTkEntry(frame, width=250)
+        self.preferred_dns_entry.pack(pady=(0, 20))
+        ctk.CTkLabel(frame, text=prompt2).pack(pady=(0, 10))
+        self.alternate_dns_entry = ctk.CTkEntry(frame, width=250)
+        self.alternate_dns_entry.pack(pady=(0, 20))
+        button_frame = ctk.CTkFrame(frame)
+        button_frame.pack(side='bottom', pady=10)
+        ctk.CTkButton(button_frame, text="Submit", command=self.ok).pack(side='right', padx=5)
+        ctk.CTkButton(button_frame, text="Cancel", command=self.cancel).pack(side='right')
+        self.attributes('-topmost', True)
+        self.grab_set()
+        self.focus_set()
+    def ok(self):
+        self.result = (self.preferred_dns_entry.get(), self.alternate_dns_entry.get())
+        self.destroy()
+    def cancel(self):
+        self.result = (None, None)
+        self.destroy()
 
 def hide_console():
     """ Hide the console window (Windows specific). """
@@ -68,9 +112,9 @@ def hide_console():
             ctypes.windll.kernel32.SetConsoleTitleW(" ")
             console_window = ctypes.windll.kernel32.GetConsoleWindow()
             if console_window:
-                ctypes.windll.user32.ShowWindow(console_window, 0)  # 0 means hide
+                ctypes.windll.user32.ShowWindow(console_window, 0)
     except Exception as e:
-        print(f"Failed to hide console window: {e}")
+        logging.error(f"Failed to hide console window: {e}")
 
 def run_as_admin():
     """ Relaunch the script with administrative privileges if not already running as admin. """
@@ -79,8 +123,6 @@ def run_as_admin():
             return True
     except:
         pass
-
-    # Relaunch the script with admin privileges
     ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
     sys.exit()
 
@@ -88,45 +130,39 @@ def flush_dns():
     """ Flush the DNS cache. """
     try:
         subprocess.run('ipconfig /flushdns', shell=True, check=True)
-        print("DNS cache flushed successfully.")
+        logging.info("DNS cache flushed successfully.")
     except subprocess.CalledProcessError as e:
-        print(f"Error flushing DNS cache: {e}")
+        logging.error(f"Error flushing DNS cache: {e}")
 
 def set_dns_windows_ipv4(preferred_dns, alternate_dns):
-    """ Set DNS settings for Windows IPv4. """
+    """ Set DNS settings for Windows IPv4 using WMI. """
     try:
-        # Get a list of all network interfaces
-        interfaces = subprocess.check_output('netsh interface show interface', shell=True, text=True)
-        adapters = [line.split()[-1] for line in interfaces.splitlines() if "Connected" in line]
-
-        # Apply DNS settings to each connected adapter
-        for adapter_name in adapters:
-            subprocess.run(f'netsh interface ipv4 set dns name="{adapter_name}" static {preferred_dns} primary', shell=True, check=True)
-            subprocess.run(f'netsh interface ipv4 add dns name="{adapter_name}" {alternate_dns} index=2', shell=True, check=True)
-            print(f"IPv4 DNS servers for {adapter_name} set to: {preferred_dns}, {alternate_dns}")
+        # Initialize COM for this thread
+        pythoncom.CoInitialize()
+        c = wmi.WMI()
+        for adapter in c.Win32_NetworkAdapterConfiguration(IPEnabled=True):
+            adapter.SetDNSServerSearchOrder([preferred_dns, alternate_dns])
+            logging.info(f"IPv4 DNS servers for {adapter.Description} set to: {preferred_dns}, {alternate_dns}")
         return True
-    except subprocess.CalledProcessError as e:
-        print(f"Error applying DNS settings: {e}")
+    except Exception as e:
+        logging.error(f"Error applying DNS settings: {e}")
         return False
+    finally:
+        pythoncom.CoUninitialize()  # Ensure COM is uninitialized
 
 def remove_all_dns():
     """ Remove all DNS settings from all network adapters. """
     try:
-        # Get a list of all network interfaces
         interfaces = subprocess.check_output('netsh interface show interface', shell=True, text=True)
         adapters = [line.split()[-1] for line in interfaces.splitlines() if "Connected" in line]
-
-        # Remove DNS settings from each connected adapter
         for adapter_name in adapters:
             subprocess.run(f'netsh interface ipv4 set dns name="{adapter_name}" static none', shell=True, check=True)
             subprocess.run(f'netsh interface ipv4 delete dns name="{adapter_name}" all', shell=True, check=True)
-            print(f"Removed all DNS servers from {adapter_name}")
-        
-        # Update label with success message
+            logging.info(f"Removed all DNS servers from {adapter_name}")
         result_label.configure(text="DNS settings have been removed.")
         return True
     except subprocess.CalledProcessError as e:
-        print(f"Error removing DNS settings: {e}")
+        logging.error(f"Error removing DNS settings: {e}")
         return False
 
 def ping_dns(dns_ip):
@@ -143,34 +179,37 @@ def ping_dns(dns_ip):
 
 def apply_dns_settings(dns_type):
     """ Apply the DNS settings and display ping results. """
-    preferred_dns, alternate_dns = DNS_SETTINGS[dns_type]
+    if dns_type == "Custom DNS":
+        dialog = CustomDNSDialog(app, "Custom DNS", "Enter Preferred DNS:", "Enter Alternate DNS:")
+        app.wait_window(dialog)
+        preferred_dns, alternate_dns = dialog.result
+        if not preferred_dns or not alternate_dns:
+            messagebox.showwarning("Invalid Input", "Please enter both Preferred and Alternate DNS addresses.")
+            return
+    else:
+        preferred_dns, alternate_dns = DNS_SETTINGS[dns_type]
     
-    # Show loading message
     result_label.configure(text="Applying DNS settings. Please wait...")
     app.update_idletasks()
-
-    # Simulate a delay for fake loading
-    time.sleep(1)  # Adjust the sleep duration as needed
+    time.sleep(1)
 
     success = set_dns_windows_ipv4(preferred_dns, alternate_dns)
     
     if success:
-        # Ping to test the DNS connection
         preferred_dns_ping = ping_dns(preferred_dns)
         alternate_dns_ping = ping_dns(alternate_dns)
         
-        # Update labels with the ping results
         result_label.configure(
-            text=f"DNS settings applied for {dns_type}.\n\n"
-                 f"Ping results:\n"
-                 f"\nPing: {preferred_dns_ping}\n\n")
+            text=f"Ping results:\n"
+                 f"Preferred DNS: {preferred_dns_ping}\n"
+                 f"Alternate DNS: {alternate_dns_ping}\n")
     else:
         result_label.configure(
-            text=f"Failed to apply DNS settings for {dns_type}.")
+            text=f"Failed to apply DNS settings for {dns_type}. Please try again."
+        )
 
 def apply_dns_settings_with_loading(dns_type):
     """ Wrapper to apply DNS settings with a loading indicator. """
-    # Run the apply_dns_settings function in a separate thread to avoid freezing the UI
     threading.Thread(target=apply_dns_settings, args=(dns_type,)).start()
 
 # Hide console window if running on Windows
@@ -187,12 +226,8 @@ flush_dns()
 app = ctk.CTk()
 app.title("DNS Setup")
 app.geometry("800x600")
-
-# Prevent resizing
+app.iconbitmap(resource_path("dns.ico"))
 app.resizable(False, False)
-
-# Set custom icon using .ico file
-app.iconbitmap("dns.ico")
 
 # Create a frame for DNS buttons
 button_frame = ctk.CTkFrame(app)
@@ -223,7 +258,7 @@ result_frame = ctk.CTkFrame(app)
 result_frame.pack(pady=20, fill='x')
 
 # Create a label to display ping results and loading message
-result_label = ctk.CTkLabel(result_frame, text="Select a DNS setting to apply.")
+result_label = ctk.CTkLabel(result_frame, text="Select a DNS setting to apply....")
 result_label.pack()
 
 # Start the main loop
