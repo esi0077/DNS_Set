@@ -1,32 +1,45 @@
 # DNS_Set
 
-### Easily switch between different DNS servers based on your needs without the hassle of manual adjustments.
+### Effortlessly switch between different DNS servers without the hassle of manual configurations.
 
-### Open Source: Customize the app to fit your specific requirements. Whether you want to add new DNS servers or optimize the app, the open-source nature allows for full flexibility.
+**DNS_Set** makes managing your DNS settings a breeze. Whether you want speed, privacy, or custom configurations, this app has you covered.  
 
-### Pre-Built Downloads: Download the latest build directly to avoid the complexity of building it yourself.
+---
 
-## Note : Make sure to keep the .ico file in the same directory as the app to ensure it runs properly.
+## 🟢 Features
 
+- **Open Source:** Fully customizable. Add new DNS servers, tweak the code, or optimize it to your needs. Don’t forget to credit the original author if you redistribute your version.  
+- **Pre-Built Downloads:** Skip the build process! Grab the latest release and start switching DNS servers instantly.  
+- **Easy Setup:** Just keep the `.ico` file in the same directory as the app, and you're ready to go.  
 
-# 🖼️ img 
+---
 
-<img src="https://i.imgur.com/HorG6Al.png">
+## 🖼️ Screenshot
 
+<img src="https://i.imgur.com/HorG6Al.png" alt="DNS_Set Screenshot">
 
+---
 
-# 🟢 Updates 
+## 🟢 What's New in V1.2
 
-### V1.1
+### 🔧 Fixed DNS Setup Issues
+No more "failed to connect" errors! DNS_Set now reliably applies your chosen DNS settings, whether you’re using a preset or custom configuration.  
 
-🔧 Fixed DNS Setup Issues
-We've tackled the notorious "failed to connect" error, making DNS setup more reliable than ever. Enjoy a hassle-free experience with your DNS configurations, whether you're using predefined settings or entering custom DNS addresses.
+### 🏗️ Streamlined App Structure
+We overhauled the app’s architecture to make it faster, more stable, and easier to maintain. Switching DNS servers has never been smoother.  
 
-🏗️ Updated Structure
-Our application has undergone a structural overhaul for better performance and reliability. The new structure not only enhances the stability of the app but also streamlines the process of setting up your DNS settings.
+### 🌟 Custom DNS Support
+You asked, we delivered! Enter your preferred DNS and alternate addresses in the intuitive "Custom DNS" dialog, and let DNS_Set handle the rest.  
 
-🌟 Custom DNS Feature
-We heard you! Now you can easily set up your own custom DNS addresses. With the new "Custom DNS" option, simply enter your preferred and alternate DNS addresses in the user-friendly dialog box, and let the app handle the rest.
+### 🚀 Optimized Performance
+No more crashes or freezes. DNS_Set now runs seamlessly, even when handling multiple configurations or large networks.  
 
-🚀 Optimized Performance
-We've fine-tuned the app to ensure it doesn't crash or hang while connecting to DNS servers. Expect a smoother operation, even when handling large volumes of DNS configurations or dealing with network hiccups.
+### 🤖 Automatic DNS Latency Check
+Curious which DNS is fastest? DNS_Set now measures latency and displays an easy-to-read chart, helping you choose the best server for your connection.  
+
+---
+
+## 📌 Notes
+
+- Keep the `.ico` file in the same folder as the app to ensure it runs properly.  
+- You can modify the source code freely, but please **credit the original author** in your version.  
