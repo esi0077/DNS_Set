@@ -17,8 +17,15 @@ import threading
 import logging
 import customtkinter as ctk
 from tkinter import messagebox
+import matplotlib.pyplot as plt # New function will call this
 import pythoncom  # Import pythoncom for COM initialization
 import wmi
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import tkinter as tk
+
+
+
 
 # Set up logging
 logging.basicConfig(filename='app.log', level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -29,7 +36,6 @@ def resource_path(relative_path):
         base_path = sys._MEIPASS
     except Exception:
         base_path = os.path.abspath(".")
-
     return os.path.join(base_path, relative_path)
 
 # Predefined DNS settings for each button
@@ -137,7 +143,6 @@ def flush_dns():
 def set_dns_windows_ipv4(preferred_dns, alternate_dns):
     """ Set DNS settings for Windows IPv4 using WMI. """
     try:
-        # Initialize COM for this thread
         pythoncom.CoInitialize()
         c = wmi.WMI()
         for adapter in c.Win32_NetworkAdapterConfiguration(IPEnabled=True):
@@ -148,7 +153,7 @@ def set_dns_windows_ipv4(preferred_dns, alternate_dns):
         logging.error(f"Error applying DNS settings: {e}")
         return False
     finally:
-        pythoncom.CoUninitialize()  # Ensure COM is uninitialized
+        pythoncom.CoUninitialize()
 
 def remove_all_dns():
     """ Remove all DNS settings from all network adapters. """
@@ -171,6 +176,7 @@ def ping_dns(dns_ip):
         output = subprocess.check_output(["ping", "-n", "1", dns_ip], stderr=subprocess.STDOUT, universal_newlines=True)
         lines = output.split("\n")
         times = [line.split("time=")[-1].split("ms")[0] for line in lines if "time=" in line]
+        hide_console()
         if times:
             return f"{times[0]} ms"
         return "No response"
@@ -198,6 +204,7 @@ def apply_dns_settings(dns_type):
     if success:
         preferred_dns_ping = ping_dns(preferred_dns)
         alternate_dns_ping = ping_dns(alternate_dns)
+        hide_console()
         
         result_label.configure(
             text=f"Ping results:\n"
@@ -211,6 +218,92 @@ def apply_dns_settings(dns_type):
 def apply_dns_settings_with_loading(dns_type):
     """ Wrapper to apply DNS settings with a loading indicator. """
     threading.Thread(target=apply_dns_settings, args=(dns_type,)).start()
+    
+
+# ---------- NEW FEATURE: AUTO BEST DNS ----------
+dns_test_results = None
+fastest_dns_result = None
+
+def find_best_dns():
+    """Test all DNS servers once and show results automatically with chart."""
+    global dns_test_results, fastest_dns_result
+
+    # Popup window
+    result_window = tk.Toplevel()
+    result_window.title("DNS Test Results")
+    result_window.geometry("1200x900")
+
+    frame = ctk.CTkFrame(result_window)
+    frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+    result_label = ctk.CTkLabel(frame, text="Testing all DNS servers, please wait...")
+    result_label.pack(pady=10)
+
+    # Canvas for matplotlib chart
+    fig, ax = plt.subplots(figsize=(5,3))
+    canvas = FigureCanvasTkAgg(fig, master=frame)
+    canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True, pady=10)
+
+    def show_results():
+        # Update result label
+        if fastest_dns_result:
+            dns_type, dns_ip, ping_time = fastest_dns_result
+            result_label.configure(text=f"Fastest DNS: {dns_type} ({dns_ip})\nPing: {ping_time} ms")
+        else:
+            result_label.configure(text="No DNS responded.")
+
+        # Show chart
+        if dns_test_results:
+            dns_names = [f"{t} ({ip})" for t, ip, _ in dns_test_results]
+            latencies = [p for _, _, p in dns_test_results]
+            ax.clear()
+            ax.barh(dns_names, latencies, color="skyblue")
+            ax.set_xlabel("Ping (ms)")
+            ax.set_title("DNS Latency Comparison")
+            for i, v in enumerate(latencies):
+                ax.text(v + 1, i, str(v), va='center')
+            fig.tight_layout()
+            canvas.draw()
+
+    def test_dns():
+        global dns_test_results, fastest_dns_result
+
+        if dns_test_results is None:
+            dns_test_results = []
+            fastest_dns_result = None
+            best_ping = float("inf")
+
+            for dns_type, (preferred, alternate) in DNS_SETTINGS.items():
+                if not preferred or preferred == "0.0.0.0":
+                    continue
+                ping_result = ping_dns(preferred)
+                hide_console()
+                try:
+                    ping_time = int(ping_result.replace(" ms", "").strip())
+                except ValueError:
+                    ping_time = None
+
+                if ping_time is not None:
+                    dns_test_results.append((dns_type, preferred, ping_time))
+                    if ping_time < best_ping:
+                        best_ping = ping_time
+                        fastest_dns_result = (dns_type, preferred, ping_time)
+
+        result_window.after(0, show_results)
+
+    threading.Thread(target=test_dns).start()
+
+
+
+
+def apply_best_dns_with_loading():
+    """Run find_best_dns in a thread to avoid blocking UI."""
+    threading.Thread(target=find_best_dns).start()
+    
+
+    
+    
+
 
 # Hide console window if running on Windows
 hide_console()
@@ -226,7 +319,6 @@ flush_dns()
 app = ctk.CTk()
 app.title("DNS Setup")
 app.geometry("800x600")
-app.iconbitmap(resource_path("dns.ico"))
 app.resizable(False, False)
 
 # Create a frame for DNS buttons
@@ -244,14 +336,20 @@ for index, dns_type in enumerate(DNS_SETTINGS):
     button = ctk.CTkButton(button_frame, text=f"Set {dns_type}", command=lambda t=dns_type: apply_dns_settings_with_loading(t))
     button.grid(row=row, column=column, padx=button_spacing, pady=button_spacing, sticky='ew')
 
-# Create a frame for the remove DNS button
+# Create a frame for the remove/best DNS buttons
 remove_dns_frame = ctk.CTkFrame(app)
 remove_dns_frame.pack(pady=10, fill='x')
 
 # Create a button to remove all DNS settings
-remove_dns_button = ctk.CTkButton(remove_dns_frame, text="Remove All DNS", command=remove_all_dns, 
+remove_dns_button = ctk.CTkButton(remove_dns_frame, text="Remove All DNS", command=remove_all_dns,
                                  width=200, height=50, fg_color="red", text_color="white")
-remove_dns_button.pack(pady=10, padx=5)
+remove_dns_button.pack(pady=10, padx=5, side="left")
+
+# Create a button to auto-detect and set the best DNS
+best_dns_button = ctk.CTkButton(remove_dns_frame, text="Best DNS (Auto)",
+                                command=apply_best_dns_with_loading,
+                                width=200, height=50, fg_color="green", text_color="white")
+best_dns_button.pack(pady=10, padx=5, side="right")
 
 # Create a frame for the result label
 result_frame = ctk.CTkFrame(app)
